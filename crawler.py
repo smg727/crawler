@@ -2,6 +2,8 @@ import utils
 import heapq
 import page
 
+LINKS_PER_PAGE = 10
+
 
 def main():
     # setup logger
@@ -22,14 +24,24 @@ def main():
 
     # fetch initial pages
     initial_urls = utils.fetch_seed(search_string)
+    logger.info("initial seed links fetched")
 
     # setup initial data
     page_heap = []
     for url in initial_urls:
         heapq.heappush(page_heap, page.Page(url, 100, 0))
-    # while len(page_heap) > 0:
-    #     element = heapq.heappop(page_heap)
-    #     print element.url
+    # mapping to store relevance of crawled urls
+    # url--> relevance
+    relevance = {}
+    # mapping to store incoming links from other urls
+    # url -> [url1, url2...url_n]
+    links = {}
+    crawl_count = 0
+    black_list = ["pdf", "jpg", "png"]
+
+    linker = "https://www.youtube.com"
+    print linker
+    utils.get_links_on_page(linker)
 
 
 if __name__ == "__main__":

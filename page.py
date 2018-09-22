@@ -7,3 +7,6 @@ class Page:
     def __lt__(self, other):
         return cmp(self.promise, other.promise)
 
+    def __eq__(self, other):
+        return self.url == other.url
+
