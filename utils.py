@@ -8,6 +8,7 @@ import page
 import random
 import heapq
 import math
+from url_normalize import url_normalize
 
 
 # sets up the logging service.Logs are written to crawler.log
@@ -30,7 +31,7 @@ def fetch_seed(search_term):
         os.exit(1)
     urls = list()
     for result in response.results:
-        logging.info("google returned link:: %s",result.url)
+        logging.info("google returned link:: %s", result.url)
         urls.append(result.url)
     return urls
 
@@ -43,9 +44,9 @@ def get_links_on_page(url, html_page):
     for link in soup.findAll('a', href=True):
         # logging.info("found link::%s", link['href'])
         url_in_page = link['href']
-        if "https:" not in url_in_page:
+        if "https:" not in url_in_page or "http:" not in url_in_page:
             url_in_page = urlparse.urljoin(url, url_in_page)
-        links.append(url_in_page)
+        links.append(url_normalize(url_in_page))
     logging.info("found %d links on page %s", len(links), url)
     return links
 
@@ -70,13 +71,9 @@ def compute_promise(url):
 
 def update_url_promise(url, url_from, relevance, links, page_heap):
     index = page_heap.index(page.Page(url, 0, 0))
-    logging.info(index)
     crawled_page = page_heap[index]
-    logging.info(crawled_page.url)
-    logging.info(crawled_page.promise)
     link_promise = relevance.get(url_from)
     number_of_links = len(links.get(url))
-    logging.info(crawled_page.promise)
     new_promise = (((crawled_page.promise * number_of_links) + link_promise + math.log(number_of_links+1) - math.log(number_of_links))/(number_of_links+1))
     crawled_page.promise = new_promise
     heapq.heapify(page_heap)

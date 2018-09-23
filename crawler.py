@@ -2,8 +2,10 @@ import utils
 import heapq
 import requests
 import page
+from urlparse import urlparse
 
 LINKS_PER_PAGE = 10
+MAX_DEPTH_TO_CRAWL = 2
 
 
 def main():
@@ -24,10 +26,14 @@ def main():
     logger.info("starting search for %s by crawling %d pages", search_string, crawl_limit)
 
     # fetch initial pages
+    logger.info("fetching initial seed links for :: %s",search_string)
     initial_urls = utils.fetch_seed(search_string)
-    logger.info("initial seed links fetched")
+    logger.info("%d initial seed links fetched",len(initial_urls))
 
     # setup initial data
+
+    # page_heap --> used to store type page which contains url, promise, depth
+    # page_heap --> ordered by promise, largest promise on top
     page_heap = []
     # mapping to store relevance of crawled urls
     # url--> relevance
@@ -37,16 +43,29 @@ def main():
     links = {}
     pages_crawled = 0
     black_list = ["pdf", "jpg", "png"]
+
+    # push initial seed urls to heap
     for url in initial_urls:
         heapq.heappush(page_heap, page.Page(url, 100, 0))
         links[url] = ["www.google.com"]
 
+    # setup loop to crawl the web
+    # Flow:
+    #   1. Pop page off the heap
+    #   2. Fetch page
+    #   3. Compute & store relevance
+    #   4. If page was too deep, don't dig page for links
+    #   5. Find all links in the page
+    #   6. For all link
+    #       1.  if we are seeing the url for the first time add to heap
+    #       2. If we are seeing the url before, update promise in heap
+    #   7. Repeat
     while pages_crawled < crawl_limit and len(page_heap) > 0:
-        next_page = heapq.heappop(page_heap)
-        next_page_url = next_page.url
+        next_page_to_crawl = heapq.heappop(page_heap)
+        next_page_url = next_page_to_crawl.url
 
         try:
-            logger.info("trying to get page :: %s", next_page_url)
+            logger.info("trying to fetch page :: %s", next_page_url)
             next_page = requests.get(next_page_url)
         except requests.HTTPError:
             logger.error("exception fetching page :: %s", next_page_url)
@@ -56,7 +75,10 @@ def main():
             continue
 
         page_relevance = utils.compute_relevance(next_page.text, search_string)
+        logger.info("the relevance of page %s was %d", next_page_url, page_relevance)
         relevance[next_page_url] = page_relevance
+
+        old_domain = urlparse(next_page_url).netloc
 
         links_on_page = utils.get_links_on_page(next_page_url, next_page.text)
         for url in links_on_page:
@@ -76,13 +98,21 @@ def main():
                 continue
             # At this point, we know we are seeing the page for the first time
             # add page to heap, create first link for page
-            logger.info("new link %s found, adding to page_heap",url)
-            new_page = page.Page(url, relevance.get(next_page_url), 0)
+            logger.info("new link %s found, adding to page_heap", url)
+
+            new_domain = urlparse(url).netloc
+            depth = 0
+            if new_domain == old_domain:
+                depth = next_page_to_crawl.depth + 1
+            if depth >= MAX_DEPTH_TO_CRAWL:
+                logger.info("crawled too deep, not crawling page %s from domain %s", url, new_domain)
+                continue
+            new_page = page.Page(url, relevance.get(next_page_url), depth)
             heapq.heappush(page_heap, new_page)
             links[url] = [next_page_url]
-            # TODO: find new depth by checking if it is the same domain
 
         del links[next_page_url]
+        pages_crawled = pages_crawled + 1
 
 
 if __name__ == "__main__":
