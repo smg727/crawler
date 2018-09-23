@@ -4,8 +4,10 @@ import urllib2
 from BeautifulSoup import BeautifulSoup
 import urlparse
 import os
-import requests
+import page
 import random
+import heapq
+import math
 
 
 # sets up the logging service.Logs are written to crawler.log
@@ -34,15 +36,14 @@ def fetch_seed(search_term):
 
 
 # fetches all url's present on a page
-def get_links_on_page(url):
-    html_page = requests.get(url)
-    soup = BeautifulSoup(html_page.text)
+def get_links_on_page(url, html_page):
+    soup = BeautifulSoup(html_page)
     links = []
 
     for link in soup.findAll('a', href=True):
-        #logging.info("found link::%s", link['href'])
+        # logging.info("found link::%s", link['href'])
         url_in_page = link['href']
-        if ":" not in url_in_page:
+        if "https:" not in url_in_page:
             url_in_page = urlparse.urljoin(url, url_in_page)
         links.append(url_in_page)
     logging.info("found %d links on page %s", len(links), url)
@@ -53,8 +54,8 @@ def get_links_on_page(url):
 def is_blacklisted_url(blacklist, url):
     for lookout in blacklist:
         if lookout in url:
-            return False
-    return True
+            return True
+    return False
 
 
 # compute_relevance accepts an html page, search term and computes the relevance (0-100) for the search
@@ -65,6 +66,23 @@ def compute_relevance(html_page,search_term):
 # compute_promise takes a url and returns its predicted promise
 def compute_promise(url):
     return random.uniform(0, 100)
+
+
+def update_url_promise(url, url_from, relevance, links, page_heap):
+    index = page_heap.index(page.Page(url, 0, 0))
+    logging.info(index)
+    crawled_page = page_heap[index]
+    logging.info(crawled_page.url)
+    logging.info(crawled_page.promise)
+    link_promise = relevance.get(url_from)
+    number_of_links = len(links.get(url))
+    logging.info(crawled_page.promise)
+    new_promise = (((crawled_page.promise * number_of_links) + link_promise + math.log(number_of_links+1) - math.log(number_of_links))/(number_of_links+1))
+    crawled_page.promise = new_promise
+    heapq.heapify(page_heap)
+    links.get(url).append(url_from)
+
+
 
 
 
