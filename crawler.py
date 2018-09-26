@@ -3,6 +3,8 @@ import heapq
 import requests
 import page
 from urlparse import urlparse
+import time
+
 
 
 LINKS_PER_PAGE = 10
@@ -29,7 +31,7 @@ def main():
     except ValueError:
         logger.error("number of pages in not an integer")
         return
-    if crawl_limit<11:
+    if crawl_limit < 11:
         logger.error("no crawling required")
         return
     logger.info("starting search for %s by crawling %d pages", search_string, crawl_limit)
@@ -51,8 +53,9 @@ def main():
     # url -> [url1, url2...url_n]
     links = {}
     pages_crawled = 0
-    black_list = ["pdf", "jpg", "png", "mailto", "comment", "advertising","javascript"]
-    output_file = open("crawler.txt","w");
+    query_split = set(search_string.split())
+    black_list = ["pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript"]
+    output_file = open("crawler.txt", "w");
 
     # push initial seed urls to heap
     for url in initial_urls:
@@ -72,10 +75,8 @@ def main():
     #       2. If we are seeing the url before, update promise in heap
     #   7. Repeat
     while pages_crawled < crawl_limit and len(page_heap) > 0:
-        heapq.heapify(page_heap)
         next_page_to_crawl = heapq.heappop(page_heap)
         next_page_url = next_page_to_crawl.url
-        logger.error(next_page_url)
 
         if not utils.can_crawl(next_page_url):
             logger.info("not allowed to crawl %s", next_page_url)
@@ -93,7 +94,7 @@ def main():
             continue
 
         pages_crawled = pages_crawled + 1
-        page_relevance = utils.compute_relevance(next_page.text.encode('ascii', 'ignore'), search_string)
+        page_relevance = utils.compute_relevance(next_page.text, query_split)
         logger.info("the relevance of page %s was %d, promise was %d", next_page_url, page_relevance, next_page_to_crawl.promise)
 
         output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " +\
@@ -133,7 +134,7 @@ def main():
             if new_domain == old_domain:
                 depth = next_page_to_crawl.depth + 1
             predicted_promise = utils.compute_promise(next_page_url, url, relevance, search_string)
-            new_page = page.Page(url, relevance.get(next_page_url), depth)
+            new_page = page.Page(url, predicted_promise, depth)
             heapq.heappush(page_heap, new_page)
             links[url] = [next_page_url]
 
@@ -142,6 +143,19 @@ def main():
     output_file.close()
 
 
+# heap-test
+# list = []
+# for i in range(0,10):
+#     pg = page.Page("test", random.uniform(0, 100), 0)
+#     heapq.heappush(list, pg)
+#
+# while len(list) > 0:
+#     tmp = heapq.heappop(list)
+#     print tmp.promise
+
+
 if __name__ == "__main__":
+    start_time = time.time()
     main()
+    print("--- %s seconds ---" % (time.time() - start_time))
 

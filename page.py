@@ -5,7 +5,7 @@ class Page:
         self.depth = depth
 
     def __cmp__(self, other):
-        return cmp(self.promise, other.promise)
+        return cmp(other.promise, self.promise,)
 
     def __eq__(self, other):
         return self.url == other.url

@@ -5,7 +5,6 @@ from BeautifulSoup import BeautifulSoup
 import urlparse
 import os
 import page
-import math
 import heapq
 import math
 from url_normalize import url_normalize
@@ -63,16 +62,11 @@ def is_blacklisted_url(blacklist, url):
 
 
 # compute_relevance accepts an html page, search term and computes the relevance (0-100) for the search
-def compute_relevance(html_page,search_term):
+def compute_relevance(html_page, search_term):
     relevance = 0
-    bloom = BloomFilter()
-    search_terms = search_term.split()
-    for term in search_terms:
-        bloom.add(term)
-
     for word in html_page.split():
-        if word in bloom:
-            relevance = relevance+1
+        if word in search_term:
+            relevance = relevance + 1
 
     if relevance < 100:
         return relevance
@@ -86,8 +80,8 @@ def compute_promise(url_from, url_to, relevance, search_string):
         if word in url_to:
             url_promise = url_promise + 3
     if relevance[url_from]>0:
-        return (math.ceil(math.log(relevance[url_from])) + url_promise)*100
-    return url_promise*100
+        return math.ceil(math.log(relevance[url_from])) + url_promise
+    return url_promise
 
 
 def update_url_promise(url, url_from, relevance, links, page_heap):
