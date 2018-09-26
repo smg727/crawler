@@ -7,7 +7,7 @@ from urlparse import urlparse
 
 LINKS_PER_PAGE = 10
 MAX_DEPTH_TO_CRAWL = 2
-#TODO: robots.txt
+
 #TODO: relevance
 #TODO: promise
 #TODO: bfs
@@ -21,7 +21,6 @@ def main():
     # setup logger
     logger = utils.setup_logging()
     logger.info("logger set up")
-
 
     # accept input
     search_string = raw_input("Enter search keyword ")
@@ -38,7 +37,7 @@ def main():
     # fetch initial pages
     logger.info("fetching initial seed links for :: %s",search_string)
     initial_urls = utils.fetch_seed(search_string)
-    logger.info("%d initial seed links fetched",len(initial_urls))
+    logger.info("%d initial seed links fetched", len(initial_urls))
 
     # setup initial data
 
@@ -52,7 +51,7 @@ def main():
     # url -> [url1, url2...url_n]
     links = {}
     pages_crawled = 0
-    black_list = ["pdf", "jpg", "png", "mailto"]
+    black_list = ["pdf", "jpg", "png", "mailto", "comment", "advertising","javascript"]
     output_file = open("crawler.txt","w");
 
     # push initial seed urls to heap
@@ -60,6 +59,7 @@ def main():
         heapq.heappush(page_heap, page.Page(url, 100, 0))
         links[url] = ["www.google.com"]
 
+    # heapq.heappush(page_heap, page.Page("sangram",0,0))
     # setup loop to crawl the web
     # Flow:
     #   1. Pop page off the heap
@@ -72,8 +72,10 @@ def main():
     #       2. If we are seeing the url before, update promise in heap
     #   7. Repeat
     while pages_crawled < crawl_limit and len(page_heap) > 0:
+        heapq.heapify(page_heap)
         next_page_to_crawl = heapq.heappop(page_heap)
         next_page_url = next_page_to_crawl.url
+        logger.error(next_page_url)
 
         if not utils.can_crawl(next_page_url):
             logger.info("not allowed to crawl %s", next_page_url)
@@ -91,10 +93,11 @@ def main():
             continue
 
         pages_crawled = pages_crawled + 1
-        page_relevance = utils.compute_relevance(next_page.text, search_string)
-        logger.info("the relevance of page %s was %d", next_page_url, page_relevance)
+        page_relevance = utils.compute_relevance(next_page.text.encode('ascii', 'ignore'), search_string)
+        logger.info("the relevance of page %s was %d, promise was %d", next_page_url, page_relevance, next_page_to_crawl.promise)
 
-        output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " + str(page_relevance) + "\n"
+        output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " +\
+            str(page_relevance) + " promise was "+str(next_page_to_crawl.promise)+"\n"
         output_file.write(output_string)
         output_file.flush()
 
@@ -118,7 +121,7 @@ def main():
             # check if page is soon to be visited (page_heap)
             if page.Page(url, 0, 0) in page_heap:
                 # update url promise, update new link
-                logger.info("new pointer to %s , updating promise",url)
+                logger.info("new pointer to %s , updating promise", url)
                 utils.update_url_promise(url, next_page_url, relevance, links, page_heap)
                 continue
             # At this point, we know we are seeing the page for the first time
@@ -129,6 +132,7 @@ def main():
             depth = 0
             if new_domain == old_domain:
                 depth = next_page_to_crawl.depth + 1
+            predicted_promise = utils.compute_promise(next_page_url, url, relevance, search_string)
             new_page = page.Page(url, relevance.get(next_page_url), depth)
             heapq.heappush(page_heap, new_page)
             links[url] = [next_page_url]

@@ -4,7 +4,7 @@ class Page:
         self.promise = promise
         self.depth = depth
 
-    def __lt__(self, other):
+    def __cmp__(self, other):
         return cmp(self.promise, other.promise)
 
     def __eq__(self, other):

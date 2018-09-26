@@ -5,11 +5,12 @@ from BeautifulSoup import BeautifulSoup
 import urlparse
 import os
 import page
-import random
+import math
 import heapq
 import math
 from url_normalize import url_normalize
 import robotparser
+from bloom_filter import BloomFilter
 
 
 # sets up the logging service.Logs are written to crawler.log
@@ -54,6 +55,7 @@ def get_links_on_page(url, html_page):
 
 # is_blacklisted_url accepts a list of blacklists and checks if those terms are present in the url
 def is_blacklisted_url(blacklist, url):
+    url = url.lower()
     for lookout in blacklist:
         if lookout in url:
             return True
@@ -62,12 +64,30 @@ def is_blacklisted_url(blacklist, url):
 
 # compute_relevance accepts an html page, search term and computes the relevance (0-100) for the search
 def compute_relevance(html_page,search_term):
-    return random.uniform(0, 100)
+    relevance = 0
+    bloom = BloomFilter()
+    search_terms = search_term.split()
+    for term in search_terms:
+        bloom.add(term)
+
+    for word in html_page.split():
+        if word in bloom:
+            relevance = relevance+1
+
+    if relevance < 100:
+        return relevance
+    return 100
 
 
 # compute_promise takes a url and returns its predicted promise
-def compute_promise(url):
-    return random.uniform(0, 100)
+def compute_promise(url_from, url_to, relevance, search_string):
+    url_promise = 0
+    for word in search_string.split():
+        if word in url_to:
+            url_promise = url_promise + 3
+    if relevance[url_from]>0:
+        return (math.ceil(math.log(relevance[url_from])) + url_promise)*100
+    return url_promise*100
 
 
 def update_url_promise(url, url_from, relevance, links, page_heap):
