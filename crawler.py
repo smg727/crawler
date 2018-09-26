@@ -4,14 +4,24 @@ import requests
 import page
 from urlparse import urlparse
 
+
 LINKS_PER_PAGE = 10
 MAX_DEPTH_TO_CRAWL = 2
+#TODO: robots.txt
+#TODO: relevance
+#TODO: promise
+#TODO: bfs
+#TODO: output logging
+#TODO: threading
+#TODO: url parsing?
+#TODO: calculate accuracy?
 
 
 def main():
     # setup logger
     logger = utils.setup_logging()
     logger.info("logger set up")
+
 
     # accept input
     search_string = raw_input("Enter search keyword ")
@@ -42,7 +52,8 @@ def main():
     # url -> [url1, url2...url_n]
     links = {}
     pages_crawled = 0
-    black_list = ["pdf", "jpg", "png"]
+    black_list = ["pdf", "jpg", "png", "mailto"]
+    output_file = open("crawler.txt","w");
 
     # push initial seed urls to heap
     for url in initial_urls:
@@ -64,31 +75,45 @@ def main():
         next_page_to_crawl = heapq.heappop(page_heap)
         next_page_url = next_page_to_crawl.url
 
+        if not utils.can_crawl(next_page_url):
+            logger.info("not allowed to crawl %s", next_page_url)
+            del links[next_page_url]
+            continue
+
         try:
             logger.info("trying to fetch page :: %s", next_page_url)
-            next_page = requests.get(next_page_url)
-        except requests.HTTPError:
+            next_page = requests.get(next_page_url, timeout=1)
+        except requests.exceptions.RequestException:
             logger.error("exception fetching page :: %s", next_page_url)
             continue
         if next_page.status_code != 200:
             logger.error("error fetching page :: %s", next_page.status_code)
             continue
 
+        pages_crawled = pages_crawled + 1
         page_relevance = utils.compute_relevance(next_page.text, search_string)
         logger.info("the relevance of page %s was %d", next_page_url, page_relevance)
-        relevance[next_page_url] = page_relevance
 
+        output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " + str(page_relevance) + "\n"
+        output_file.write(output_string)
+        output_file.flush()
+
+        relevance[next_page_url] = page_relevance
         old_domain = urlparse(next_page_url).netloc
+
+        if next_page_to_crawl.depth >= MAX_DEPTH_TO_CRAWL:
+            logger.info("crawled too deep, not crawling page %s from domain %s", next_page_url, old_domain)
+            continue
 
         links_on_page = utils.get_links_on_page(next_page_url, next_page.text)
         for url in links_on_page:
             # check if url has already been visited
             if url in relevance:
-                logger.error("ignoring already visited url :: %s", url)
+                logger.info("ignoring already visited url :: %s", url)
                 continue
             # check if url is blacklisted
             if utils.is_blacklisted_url(black_list, url):
-                logger.error("ignoring blacklisted url :: %s", url)
+                logger.info("ignoring blacklisted url :: %s", url)
                 continue
             # check if page is soon to be visited (page_heap)
             if page.Page(url, 0, 0) in page_heap:
@@ -104,15 +129,13 @@ def main():
             depth = 0
             if new_domain == old_domain:
                 depth = next_page_to_crawl.depth + 1
-            if depth >= MAX_DEPTH_TO_CRAWL:
-                logger.info("crawled too deep, not crawling page %s from domain %s", url, new_domain)
-                continue
             new_page = page.Page(url, relevance.get(next_page_url), depth)
             heapq.heappush(page_heap, new_page)
             links[url] = [next_page_url]
 
         del links[next_page_url]
-        pages_crawled = pages_crawled + 1
+
+    output_file.close()
 
 
 if __name__ == "__main__":

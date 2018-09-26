@@ -9,6 +9,7 @@ import random
 import heapq
 import math
 from url_normalize import url_normalize
+import robotparser
 
 
 # sets up the logging service.Logs are written to crawler.log
@@ -78,6 +79,19 @@ def update_url_promise(url, url_from, relevance, links, page_heap):
     crawled_page.promise = new_promise
     heapq.heapify(page_heap)
     links.get(url).append(url_from)
+
+
+# can_crawl checks the domain of the url and returns true if it can be crawled
+def can_crawl(url):
+    url_split = urlparse.urlparse(url)
+    robot_file_location = url_split.scheme+"://"+url_split.netloc+"/robots.txt"
+    parser = robotparser.RobotFileParser()
+    parser.set_url(robot_file_location)
+    parser.read()
+    return parser.can_fetch("*", url)
+
+
+
 
 
 
