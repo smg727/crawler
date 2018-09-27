@@ -6,9 +6,9 @@ from urlparse import urlparse
 import time
 
 
-
 LINKS_PER_PAGE = 10
 MAX_DEPTH_TO_CRAWL = 2
+FOCUSSED_CRAWL = False
 
 #TODO: relevance
 #TODO: promise
@@ -53,13 +53,17 @@ def main():
     # url -> [url1, url2...url_n]
     links = {}
     pages_crawled = 0
+    relevant_count = 0
     query_split = set(search_string.split())
-    black_list = ["pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript"]
+    black_list = ["php","pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript", "cite", "cite_note", "picture", "image", "photo"]
     output_file = open("crawler.txt", "w");
 
     # push initial seed urls to heap
     for url in initial_urls:
-        heapq.heappush(page_heap, page.Page(url, 100, 0))
+        if FOCUSSED_CRAWL:
+            heapq.heappush(page_heap, page.Page(url, 100, 0))
+        else:
+            page_heap.append(page.Page(url, 100, 0))
         links[url] = ["www.google.com"]
 
     # heapq.heappush(page_heap, page.Page("sangram",0,0))
@@ -75,14 +79,20 @@ def main():
     #       2. If we are seeing the url before, update promise in heap
     #   7. Repeat
     while pages_crawled < crawl_limit and len(page_heap) > 0:
-        next_page_to_crawl = heapq.heappop(page_heap)
+        if FOCUSSED_CRAWL:
+            next_page_to_crawl = heapq.heappop(page_heap)
+        else:
+            next_page_to_crawl = page_heap.pop(0)
         next_page_url = next_page_to_crawl.url
 
-        if not utils.can_crawl(next_page_url):
-            logger.info("not allowed to crawl %s", next_page_url)
-            del links[next_page_url]
+        try:
+            if not utils.can_crawl(next_page_url):
+                logger.info("not allowed to crawl %s", next_page_url)
+                del links[next_page_url]
+                continue
+        except IOError:
+            logger.error("error connecting to %s",next_page_url)
             continue
-
         try:
             logger.info("trying to fetch page :: %s", next_page_url)
             next_page = requests.get(next_page_url, timeout=1)
@@ -95,6 +105,8 @@ def main():
 
         pages_crawled = pages_crawled + 1
         page_relevance = utils.compute_relevance(next_page.text, query_split)
+        if page_relevance > 0:
+            relevant_count = relevant_count + 1
         logger.info("the relevance of page %s was %d, promise was %d", next_page_url, page_relevance, next_page_to_crawl.promise)
 
         output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " +\
@@ -105,9 +117,9 @@ def main():
         relevance[next_page_url] = page_relevance
         old_domain = urlparse(next_page_url).netloc
 
-        if next_page_to_crawl.depth >= MAX_DEPTH_TO_CRAWL:
-            logger.info("crawled too deep, not crawling page %s from domain %s", next_page_url, old_domain)
-            continue
+        # if next_page_to_crawl.depth >= MAX_DEPTH_TO_CRAWL:
+        #     logger.info("crawled too deep, not crawling page %s from domain %s", next_page_url, old_domain)
+        #     continue
 
         links_on_page = utils.get_links_on_page(next_page_url, next_page.text)
         for url in links_on_page:
@@ -133,13 +145,19 @@ def main():
             depth = 0
             if new_domain == old_domain:
                 depth = next_page_to_crawl.depth + 1
+
+            if depth >= MAX_DEPTH_TO_CRAWL:
+                continue
             predicted_promise = utils.compute_promise(next_page_url, url, relevance, search_string)
             new_page = page.Page(url, predicted_promise, depth)
-            heapq.heappush(page_heap, new_page)
+            if FOCUSSED_CRAWL:
+                heapq.heappush(page_heap, new_page)
+            else:
+                page_heap.append(new_page)
             links[url] = [next_page_url]
 
         del links[next_page_url]
-
+    logger.info("throughtput was "+str(relevant_count ))
     output_file.close()
 
 
@@ -157,5 +175,5 @@ def main():
 if __name__ == "__main__":
     start_time = time.time()
     main()
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("--- %s minutes ---", ((time.time() - start_time)/60))
 

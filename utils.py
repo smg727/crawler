@@ -9,8 +9,8 @@ import heapq
 import math
 from url_normalize import url_normalize
 import robotparser
-from bloom_filter import BloomFilter
 
+import crawler
 
 # sets up the logging service.Logs are written to crawler.log
 def setup_logging():
@@ -45,9 +45,12 @@ def get_links_on_page(url, html_page):
     for link in soup.findAll('a', href=True):
         # logging.info("found link::%s", link['href'])
         url_in_page = link['href']
-        if "https:" not in url_in_page or "http:" not in url_in_page:
-            url_in_page = urlparse.urljoin(url, url_in_page)
-        links.append(url_normalize(url_in_page))
+        try:
+            if "https:" not in url_in_page or "http:" not in url_in_page:
+                url_in_page = urlparse.urljoin(url, url_in_page)
+            links.append(url_normalize(url_in_page))
+        except UnicodeError:
+            continue
     logging.info("found %d links on page %s", len(links), url)
     return links
 
@@ -65,7 +68,7 @@ def is_blacklisted_url(blacklist, url):
 def compute_relevance(html_page, search_term):
     relevance = 0
     for word in html_page.split():
-        if word in search_term:
+        if word.lower() in search_term:
             relevance = relevance + 1
 
     if relevance < 100:
@@ -91,18 +94,24 @@ def update_url_promise(url, url_from, relevance, links, page_heap):
     number_of_links = len(links.get(url))
     new_promise = (((crawled_page.promise * number_of_links) + link_promise + math.log(number_of_links+1) - math.log(number_of_links))/(number_of_links+1))
     crawled_page.promise = new_promise
-    heapq.heapify(page_heap)
+    if crawler.FOCUSSED_CRAWL:
+        heapq.heapify(page_heap)
     links.get(url).append(url_from)
 
 
 # can_crawl checks the domain of the url and returns true if it can be crawled
 def can_crawl(url):
-    url_split = urlparse.urlparse(url)
-    robot_file_location = url_split.scheme+"://"+url_split.netloc+"/robots.txt"
-    parser = robotparser.RobotFileParser()
-    parser.set_url(robot_file_location)
-    parser.read()
-    return parser.can_fetch("*", url)
+    try:
+        url_split = urlparse.urlparse(url)
+        robot_file_location = url_split.scheme+"://"+url_split.netloc+"/robots.txt"
+        parser = robotparser.RobotFileParser()
+        parser.set_url(robot_file_location)
+        parser.read()
+        return parser.can_fetch("*", url)
+    except Exception:
+        logging.error("unable to check robot.txt for :: %s ",url)
+        return False
+
 
 
 
