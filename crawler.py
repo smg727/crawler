@@ -5,18 +5,9 @@ import page
 from urlparse import urlparse
 import time
 
-
-LINKS_PER_PAGE = 10
 MAX_DEPTH_TO_CRAWL = 2
 FOCUSSED_CRAWL = False
-
-#TODO: relevance
-#TODO: promise
-#TODO: bfs
-#TODO: output logging
-#TODO: threading
-#TODO: url parsing?
-#TODO: calculate accuracy?
+COSINE_RELEVANCE_THRESHOLD = 0.01
 
 
 def main():
@@ -55,15 +46,15 @@ def main():
     pages_crawled = 0
     relevant_count = 0
     query_split = set(search_string.split())
-    black_list = ["php","pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript", "cite", "cite_note", "picture", "image", "photo"]
+    black_list = ["php","pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript", "cite", "cite_note", "picture", "image", "photo", "#"]
     output_file = open("crawler.txt", "w");
 
     # push initial seed urls to heap
     for url in initial_urls:
         if FOCUSSED_CRAWL:
-            heapq.heappush(page_heap, page.Page(url, 100, 0))
+            heapq.heappush(page_heap, page.Page(url, 10, 0))
         else:
-            page_heap.append(page.Page(url, 100, 0))
+            page_heap.append(page.Page(url, 10, 0))
         links[url] = ["www.google.com"]
 
     # heapq.heappush(page_heap, page.Page("sangram",0,0))
@@ -104,8 +95,9 @@ def main():
             continue
 
         pages_crawled = pages_crawled + 1
-        page_relevance = utils.compute_relevance(next_page.text, query_split)
-        if page_relevance > 0:
+        page_relevance = utils.compute_relevance(next_page.text, search_string)
+        # scale cosine threshold to 0-100
+        if page_relevance > COSINE_RELEVANCE_THRESHOLD*100:
             relevant_count = relevant_count + 1
         logger.info("the relevance of page %s was %d, promise was %d", next_page_url, page_relevance, next_page_to_crawl.promise)
 
@@ -157,7 +149,8 @@ def main():
             links[url] = [next_page_url]
 
         del links[next_page_url]
-    logger.info("throughtput was "+str(relevant_count ))
+    harvest_percentage = str(100*float(relevant_count)/float(crawl_limit))
+    logger.info("harvest rate was "+harvest_percentage+" percent")
     output_file.close()
 
 
