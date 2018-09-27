@@ -40,8 +40,12 @@ def fetch_seed(search_term):
 
 # fetches all url's present on a page
 def get_links_on_page(url, html_page):
-    soup = BeautifulSoup(html_page)
     links = []
+
+    try:
+        soup = BeautifulSoup(html_page)
+    except Exception:
+        return links
 
     for link in soup.findAll('a', href=True):
         # logging.info("found link::%s", link['href'])
@@ -88,13 +92,17 @@ def compute_promise(url_from, url_to, relevance, search_string):
     return url_promise
 
 
-def update_url_promise(url, url_from, relevance, links, page_heap):
+def update_url_promise(url, url_from, relevance, links, page_heap, crawl_limit):
     index = page_heap.index(page.Page(url, 0, 0))
     crawled_page = page_heap[index]
     link_promise = relevance.get(url_from)
     number_of_links = len(links.get(url))
     new_promise = (((crawled_page.promise * number_of_links) + link_promise + math.log(number_of_links+1) - math.log(number_of_links))/(number_of_links+1))
     crawled_page.promise = new_promise
+    # an optimization to ensure heapify operation stays O(log(crawl_limit)
+    if len(page_heap) > crawl_limit:
+        logging.info("trimming heap")
+        del page_heap[crawl_limit:]
     if crawler.FOCUSSED_CRAWL:
         heapq.heapify(page_heap)
     links.get(url).append(url_from)

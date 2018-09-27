@@ -28,7 +28,7 @@ def main():
     logger.info("starting search for %s by crawling %d pages", search_string, crawl_limit)
 
     # fetch initial pages
-    logger.info("fetching initial seed links for :: %s",search_string)
+    logger.info("fetching initial seed links for :: %s", search_string)
     initial_urls = utils.fetch_seed(search_string)
     logger.info("%d initial seed links fetched", len(initial_urls))
 
@@ -45,7 +45,6 @@ def main():
     links = {}
     pages_crawled = 0
     relevant_count = 0
-    query_split = set(search_string.split())
     black_list = ["php","pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript", "cite", "cite_note", "picture", "image", "photo", "#"]
     output_file = open("crawler.txt", "w");
 
@@ -109,10 +108,6 @@ def main():
         relevance[next_page_url] = page_relevance
         old_domain = urlparse(next_page_url).netloc
 
-        # if next_page_to_crawl.depth >= MAX_DEPTH_TO_CRAWL:
-        #     logger.info("crawled too deep, not crawling page %s from domain %s", next_page_url, old_domain)
-        #     continue
-
         links_on_page = utils.get_links_on_page(next_page_url, next_page.text)
         for url in links_on_page:
             # check if url has already been visited
@@ -127,7 +122,7 @@ def main():
             if page.Page(url, 0, 0) in page_heap:
                 # update url promise, update new link
                 logger.info("new pointer to %s , updating promise", url)
-                utils.update_url_promise(url, next_page_url, relevance, links, page_heap)
+                utils.update_url_promise(url, next_page_url, relevance, links, page_heap, crawl_limit)
                 continue
             # At this point, we know we are seeing the page for the first time
             # add page to heap, create first link for page
@@ -152,17 +147,6 @@ def main():
     harvest_percentage = str(100*float(relevant_count)/float(crawl_limit))
     logger.info("harvest rate was "+harvest_percentage+" percent")
     output_file.close()
-
-
-# heap-test
-# list = []
-# for i in range(0,10):
-#     pg = page.Page("test", random.uniform(0, 100), 0)
-#     heapq.heappush(list, pg)
-#
-# while len(list) > 0:
-#     tmp = heapq.heappop(list)
-#     print tmp.promise
 
 
 if __name__ == "__main__":
