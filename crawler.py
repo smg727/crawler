@@ -6,7 +6,7 @@ from urlparse import urlparse
 import time
 
 MAX_DEPTH_TO_CRAWL = 2
-FOCUSSED_CRAWL = False
+FOCUSSED_CRAWL = True
 COSINE_RELEVANCE_THRESHOLD = 0.01
 
 
@@ -98,10 +98,14 @@ def main():
         # scale cosine threshold to 0-100
         if page_relevance > COSINE_RELEVANCE_THRESHOLD*100:
             relevant_count = relevant_count + 1
-        logger.info("the relevance of page %s was %d, promise was %d", next_page_url, page_relevance, next_page_to_crawl.promise)
 
-        output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " +\
-            str(page_relevance) + " promise was "+str(next_page_to_crawl.promise)+"\n"
+        if FOCUSSED_CRAWL:
+            output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " +\
+                str(page_relevance) + " promise was "+str(next_page_to_crawl.promise)+"\n"
+        else:
+            output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " + \
+                            str(page_relevance) + "\n"
+
         output_file.write(output_string)
         output_file.flush()
 
@@ -118,11 +122,13 @@ def main():
             if utils.is_blacklisted_url(black_list, url):
                 logger.info("ignoring blacklisted url :: %s", url)
                 continue
-            # check if page is soon to be visited (page_heap)
+            # check if page is soon to be visited (present in page_heap)
             if page.Page(url, 0, 0) in page_heap:
-                # update url promise, update new link
-                logger.info("new pointer to %s , updating promise", url)
-                utils.update_url_promise(url, next_page_url, relevance, links, page_heap, crawl_limit)
+                # update url promise if we are in focussed mode only
+                # no need to update promise in bfs
+                if FOCUSSED_CRAWL:
+                    logger.info("new pointer to %s , updating promise", url)
+                    utils.update_url_promise(url, next_page_url, relevance, links, page_heap, crawl_limit)
                 continue
             # At this point, we know we are seeing the page for the first time
             # add page to heap, create first link for page
@@ -143,7 +149,10 @@ def main():
                 page_heap.append(new_page)
             links[url] = [next_page_url]
 
-        del links[next_page_url]
+        try:
+            del links[next_page_url]
+        except Exception:
+            logger.error("error removing graph links to :: %s", next_page_url)
     harvest_percentage = str(100*float(relevant_count)/float(crawl_limit))
     logger.info("harvest rate was "+harvest_percentage+" percent")
     output_file.close()

@@ -15,7 +15,7 @@ import crawler
 
 # sets up the logging service.Logs are written to crawler.log
 def setup_logging():
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                         datefmt='%m-%d %H:%M',
                         filename='crawler.log',
