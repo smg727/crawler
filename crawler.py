@@ -7,11 +7,13 @@ import time
 import datetime
 
 MAX_DEPTH_TO_CRAWL = 2
-FOCUSSED_CRAWL = True
+FOCUSSED_CRAWL = False
 COSINE_RELEVANCE_THRESHOLD = 0.01
 
 
 def main():
+
+    stats_start_time = time.time()
     # setup logger
     logger = utils.setup_logging()
     logger.info("logger set up")
@@ -45,6 +47,7 @@ def main():
     # url -> [url1, url2...url_n]
     links = {}
     pages_crawled = 0
+    stats_errors = 0
     relevant_count = 0
     black_list = ["php","pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript", "cite", "cite_note", "picture", "image", "photo", "#"]
     output_file = open("crawler.txt", "w");
@@ -82,16 +85,18 @@ def main():
                 del links[next_page_url]
                 continue
         except IOError:
-            logger.error("error connecting to %s",next_page_url)
+            logger.error("error connecting to %s", next_page_url)
             continue
         try:
             logger.info("trying to fetch page :: %s", next_page_url)
             next_page = requests.get(next_page_url, timeout=1)
         except requests.exceptions.RequestException:
             logger.error("exception fetching page :: %s", next_page_url)
+            stats_errors = stats_errors+1
             continue
         if next_page.status_code != 200:
             logger.error("error fetching page :: %s", next_page.status_code)
+            stats_errors = stats_errors+1
             continue
 
         pages_crawled = pages_crawled + 1
@@ -100,7 +105,7 @@ def main():
         if page_relevance > COSINE_RELEVANCE_THRESHOLD*100:
             relevant_count = relevant_count + 1
         output = str(pages_crawled)+" "+next_page_url+"\n"
-        output_string = "  time: "+str(datetime.datetime.time(datetime.datetime.now())) +\
+        output_string = "   time: "+str(datetime.datetime.time(datetime.datetime.now())) +\
                         " size:"+str(len(next_page.content))+" relevance:"+str(page_relevance)
         if FOCUSSED_CRAWL:
             output_string = output_string+" promise:"+str(next_page_to_crawl.promise)+"\n\n"
@@ -155,13 +160,18 @@ def main():
             del links[next_page_url]
         except Exception:
             logger.error("error removing graph links to :: %s", next_page_url)
+
+    output_file.write("\n~~~~~~~~~~~~~~~~~~~Stats~~~~~~~~~~~~~~~~\n\n")
     harvest_percentage = str(100*float(relevant_count)/float(crawl_limit))
-    logger.info("harvest rate was "+harvest_percentage+" percent")
+    output_file.write("harvest rate   : "+harvest_percentage+" percent\n")
+    output_file.write("4xx errors     : "+str(stats_errors)+"\n")
+    output_file.write("execution time : "+str((time.time()-stats_start_time)/60)+" minutes\n")
+    output_file.write("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    output_file.flush()
     output_file.close()
 
 
 if __name__ == "__main__":
-    start_time = time.time()
     main()
-    print("--- %s minutes ---", ((time.time() - start_time)/60))
+
 
