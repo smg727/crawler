@@ -7,13 +7,16 @@ import time
 import datetime
 
 MAX_DEPTH_TO_CRAWL = 2
+# BFS if set to False
 FOCUSSED_CRAWL = False
+# Threshold above which page will be considered relevant
 COSINE_RELEVANCE_THRESHOLD = 0.01
 
 
 def main():
 
     stats_start_time = time.time()
+
     # setup logger
     logger = utils.setup_logging()
     logger.info("logger set up")
@@ -31,25 +34,33 @@ def main():
     logger.info("starting search for %s by crawling %d pages", search_string, crawl_limit)
 
     # fetch initial pages
-    logger.info("fetching initial seed links for :: %s", search_string)
-    initial_urls = utils.fetch_seed(search_string)
-    logger.info("%d initial seed links fetched", len(initial_urls))
+    while True:
+        logger.info("fetching initial seed links for :: %s", search_string)
+        initial_urls = utils.fetch_seed(search_string)
+        logger.info("%d initial seed links fetched", len(initial_urls))
+        if len(initial_urls) > 0:
+            break
 
     # setup initial data
 
     # page_heap --> used to store type page which contains url, promise, depth
     # page_heap --> ordered by promise, largest promise on top
     page_heap = []
-    # mapping to store relevance of crawled urls
+    # relevance is used to store relevance of crawled urls
     # url--> relevance
     relevance = {}
     # mapping to store incoming links from other urls
     # url -> [url1, url2...url_n]
+    # this is mapped as an  inverted graph.
+    # eg: url1 has incoming links from [url2, url3]
     links = {}
+    # pages_crawled, stats_errors, relevant_count are used to track crawler stats
     pages_crawled = 0
     stats_errors = 0
     relevant_count = 0
-    black_list = ["php","pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript", "cite", "cite_note", "picture", "image", "photo", "#"]
+    black_list = ["php", "pdf", "jpg", "png", "mailto", "comment", "advertising", "javascript",
+                  "cite", "cite_note", "picture", "image", "photo", "#", ".mp3", ".mp4"]
+    # output file
     output_file = open("crawler.txt", "w");
 
     # push initial seed urls to heap
@@ -104,6 +115,8 @@ def main():
         # scale cosine threshold to 0-100
         if page_relevance > COSINE_RELEVANCE_THRESHOLD*100:
             relevant_count = relevant_count + 1
+
+        # write coutput to file
         output = str(pages_crawled)+" "+next_page_url+"\n"
         output_string = "   time: "+str(datetime.datetime.time(datetime.datetime.now())) +\
                         " size:"+str(len(next_page.content))+" relevance:"+str(page_relevance)
@@ -111,7 +124,6 @@ def main():
             output_string = output_string+" promise:"+str(next_page_to_crawl.promise)+"\n\n"
         else:
             output_string = output_string + "\n\n"
-
         output_file.write(output)
         output_file.write(output_string)
         output_file.flush()
@@ -137,17 +149,20 @@ def main():
                     logger.info("new pointer to %s , updating promise", url)
                     utils.update_url_promise(url, next_page_url, relevance, links, page_heap, crawl_limit)
                 continue
+
             # At this point, we know we are seeing the page for the first time
             # add page to heap, create first link for page
             logger.info("new link %s found, adding to page_heap", url)
 
+            # check if we are crawling too deep into a domain
             new_domain = urlparse(url).netloc
             depth = 0
             if new_domain == old_domain:
                 depth = next_page_to_crawl.depth + 1
-
             if depth >= MAX_DEPTH_TO_CRAWL:
                 continue
+
+            # compute predicted promise
             predicted_promise = utils.compute_promise(next_page_url, url, relevance, search_string)
             new_page = page.Page(url, predicted_promise, depth)
             if FOCUSSED_CRAWL:
@@ -156,11 +171,14 @@ def main():
                 page_heap.append(new_page)
             links[url] = [next_page_url]
 
+        # delete incoming links to a page for 'search in links' optimization
+        # we will not be using this data again as we don't visit seen urls again
         try:
             del links[next_page_url]
         except Exception:
             logger.error("error removing graph links to :: %s", next_page_url)
 
+    # log stats to file
     output_file.write("\n~~~~~~~~~~~~~~~~~~~Stats~~~~~~~~~~~~~~~~\n\n")
     harvest_percentage = str(100*float(relevant_count)/float(crawl_limit))
     output_file.write("harvest rate   : "+harvest_percentage+" percent\n")
