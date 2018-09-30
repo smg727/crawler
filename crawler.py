@@ -4,6 +4,7 @@ import requests
 import page
 from urlparse import urlparse
 import time
+import datetime
 
 MAX_DEPTH_TO_CRAWL = 2
 FOCUSSED_CRAWL = True
@@ -98,14 +99,15 @@ def main():
         # scale cosine threshold to 0-100
         if page_relevance > COSINE_RELEVANCE_THRESHOLD*100:
             relevant_count = relevant_count + 1
-
+        output = str(pages_crawled)+" "+next_page_url+"\n"
+        output_string = "  time: "+str(datetime.datetime.time(datetime.datetime.now())) +\
+                        " size:"+str(len(next_page.content))+" relevance:"+str(page_relevance)
         if FOCUSSED_CRAWL:
-            output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " +\
-                str(page_relevance) + " promise was "+str(next_page_to_crawl.promise)+"\n"
+            output_string = output_string+" promise:"+str(next_page_to_crawl.promise)+"\n\n"
         else:
-            output_string = str(pages_crawled) + " the relevance of crawled page " + next_page_url + " was " + \
-                            str(page_relevance) + "\n"
+            output_string = output_string + "\n\n"
 
+        output_file.write(output)
         output_file.write(output_string)
         output_file.flush()
 
