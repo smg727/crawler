@@ -1,7 +1,5 @@
-# crawler
-Crawler - A focussed web crawler
-Sangram Ghuge
-smg727@nyu.edu
+#Crawler - A focussed web crawler
+
 
 The project consists of 3 main files:
 1. page.py
@@ -59,15 +57,15 @@ Flow:
 2. These pages are added to either a queue(breath first search) or a heap of page objects(focussed search)
 3. The heap of page objects is ordered with the page with the highest promise on top
 4. We start a loop to crawl as many pages as listed
-    # setup loop to crawl the web
-    # Flow:
-    #   1. Pop page off the heap
-    #   2. Fetch page
-    #   3. Compute & store relevance
-    #   4. If page was too deep, don't dig page for links
-    #   5. Find all links in the page
-    #   6. For all link
-    #       1.  if we are seeing the url for the first time add to heap
-    #       2. If we are seeing the url before, update promise in heap
+    setup loop to crawl the web
+     Flow:
+       1. Pop page off the heap
+       2. Fetch page
+       3. Compute & store relevance
+       4. If page was too deep, don't dig page for links
+       5. Find all links in the page
+       6. For all link
+           1.  if we are seeing the url for the first time add to heap
+           2. If we are seeing the url before, update promise in heap
  
 
