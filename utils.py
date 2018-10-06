@@ -110,11 +110,6 @@ def update_url_promise(url, url_from, relevance, links, page_heap, crawl_limit):
     if crawler.FOCUSSED_CRAWL:
         heapq.heapify(page_heap)
 
-    # an optimization to ensure heapify operation stays O(log(crawl_limit)
-    if len(page_heap) > crawl_limit:
-        logging.info("trimming heap")
-        del page_heap[math.ceil(crawl_limit*0.8):]
-
     # update links graph with the new link
     links.get(url).append(url_from)
 

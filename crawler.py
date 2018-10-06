@@ -5,12 +5,13 @@ import page
 from urlparse import urlparse
 import time
 import datetime
+import math
 
 MAX_DEPTH_TO_CRAWL = 2
 # BFS if set to False
-FOCUSSED_CRAWL = False
+FOCUSSED_CRAWL = True
 # Threshold above which page will be considered relevant
-COSINE_RELEVANCE_THRESHOLD = 0.01
+COSINE_RELEVANCE_THRESHOLD = 0.02
 
 
 def main():
@@ -71,7 +72,6 @@ def main():
             page_heap.append(page.Page(url, 10, 0))
         links[url] = ["www.google.com"]
 
-    # heapq.heappush(page_heap, page.Page("sangram",0,0))
     # setup loop to crawl the web
     # Flow:
     #   1. Pop page off the heap
@@ -170,6 +170,11 @@ def main():
             else:
                 page_heap.append(new_page)
             links[url] = [next_page_url]
+
+        # an optimization to ensure heapify operation stays O(log(crawl_limit)
+        if len(page_heap) > crawl_limit:
+            logger.info("trimming heap")
+            del page_heap[math.ceil(crawl_limit * 0.8):]
 
         # delete incoming links to a page for 'search in links' optimization
         # we will not be using this data again as we don't visit seen urls again
